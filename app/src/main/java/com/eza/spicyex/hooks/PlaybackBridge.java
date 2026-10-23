@@ -30,6 +30,7 @@ final class PlaybackBridge {
     private volatile boolean isPlaying;
     private volatile long mediaPositionMs = -1;
     private volatile long mediaPositionUpdatedAtElapsedMs = 0;
+    private volatile double mediaPlaybackSpeed = 1d;
     private volatile long seekOverrideUntilElapsedMs = 0;
     private volatile WeakReference<MediaSession> currentMediaSession = new WeakReference<>(null);
     private Method playerWrapperGetStateMethod;
@@ -37,8 +38,12 @@ final class PlaybackBridge {
     private AudioOutputLatency outputLatency;
 
     void install(XpPackage lpparm, SpotifySymbolResolver symbols) {
-        outputLatency = new AudioOutputLatency(lpparm.classLoader());
-        hookPlayerStateBridge(lpparm, symbols);
+        // Samsung Music has no Spotify PlayerState model at all; the media
+        // session hooks below are the entire playback bridge there.
+        if (!HostTarget.SAMSUNG) {
+            outputLatency = new AudioOutputLatency(lpparm.classLoader());
+            hookPlayerStateBridge(lpparm, symbols);
+        }
         installMediaSessionHook();
     }
 
@@ -97,8 +102,13 @@ final class PlaybackBridge {
     private void installMediaSessionHook() {
         try {
             XpHooks.findAfter(MediaSession.class, "setMetadata", "artwork:MediaSession#setMetadata",
-                    param -> com.eza.spicyex.lyrics.cache.SpotifyArtworkCache.capture(
-                            (android.media.MediaMetadata) param.args[0]), android.media.MediaMetadata.class);
+                    param -> {
+                        android.media.MediaMetadata metadata = (android.media.MediaMetadata) param.args[0];
+                        if (HostTarget.SAMSUNG) {
+                            SamsungPlaybackStore.onMetadata(metadata);
+                        }
+                        com.eza.spicyex.lyrics.cache.SpotifyArtworkCache.capture(metadata);
+                    }, android.media.MediaMetadata.class);
         } catch (Throwable t) {
             XpLog.log(NativeSpicyLyricsHook.TAG + " artwork metadata hook unavailable: " + t.getClass().getSimpleName());
         }
@@ -108,11 +118,16 @@ final class PlaybackBridge {
                         currentMediaSession = new WeakReference<>((MediaSession) param.thisObject);
                         PlaybackState playbackState = (PlaybackState) param.args[0];
                         if (playbackState == null) return;
+                        if (HostTarget.SAMSUNG) {
+                            SamsungPlaybackStore.onPlaybackState(playbackState);
+                        }
                         // Buffering is playback on its way (around a seek, a track change), not
                         // a pause; the user's pause is PAUSED.
                         int s = playbackState.getState();
                         isPlaying = s == PlaybackState.STATE_PLAYING
                                 || s == PlaybackState.STATE_BUFFERING;
+                        double speed = playbackState.getPlaybackSpeed();
+                        if (speed > 0d && speed < 8d) mediaPlaybackSpeed = speed;
                         long position = playbackState.getPosition();
                         if (position >= 0) {
                             mediaPositionMs = position;
@@ -275,7 +290,12 @@ final class PlaybackBridge {
         if (!playing) return 0d;
         try {
             Object state = References.playerState == null ? null : References.playerState.get();
-            if (state == null) return 1d;
+            if (state == null) {
+                // Samsung retarget: no Spotify PlayerState exists; trust the
+                // advertised playback speed from the media session.
+                double sessionSpeed = mediaPlaybackSpeed;
+                return (sessionSpeed > 0d && sessionSpeed < 8d) ? sessionSpeed : 1d;
+            }
             if (state != parsedState) parseState(state);
             if (parsedBasePos < 0) return 1d;
             if (parsedBuffering) return 0d;
@@ -322,16 +342,17 @@ final class PlaybackBridge {
         long now = SystemClock.elapsedRealtime();
         long media = mediaPositionMs;
         if (media >= 0 && now < seekOverrideUntilElapsedMs) {
-            if (playing && mediaPositionUpdatedAtElapsedMs > 0) {
-                return Math.max(0, media + (now - mediaPositionUpdatedAtElapsedMs));
-            }
-            return Math.max(0, media);
+            return Math.max(0, extrapolatedMediaPositionMs(media, now, playing));
         }
 
         long playerStateProgress = readPlayerStateProgressMs(playing);
         if (playerStateProgress >= 0) {
             reportedFromPlayerState = parsedTimestamp > 0;
             return playerStateProgress;
+        }
+
+        if (media >= 0) {
+            return Math.max(0, extrapolatedMediaPositionMs(media, now, playing));
         }
 
         if (track != null && track.position >= 0) {
@@ -342,14 +363,21 @@ final class PlaybackBridge {
             }
             return Math.max(0, track.position);
         }
-
-        if (media >= 0) {
-            if (playing && mediaPositionUpdatedAtElapsedMs > 0) {
-                return Math.max(0, media + (now - mediaPositionUpdatedAtElapsedMs));
-            }
-            return Math.max(0, media);
-        }
         return -1;
+    }
+
+    /**
+     * Media-session wall-clock extrapolation. The framework PlaybackState reports its own
+     * speed; Spotify's sessions always advertise 1.0, Samsung Music (the retarget host)
+     * carries the real rate, so every consumer keeps its intended behaviour by ticking
+     * the reported position forward with the last advertised speed.
+     */
+    private long extrapolatedMediaPositionMs(long media, long nowElapsed, boolean playing) {
+        if (!playing || mediaPositionUpdatedAtElapsedMs <= 0) return media;
+        double speed = mediaPlaybackSpeed;
+        if (!(speed > 0d) || speed > 8d) speed = 1d;
+        long elapsed = Math.max(0, nowElapsed - mediaPositionUpdatedAtElapsedMs);
+        return media + Math.max(0, Math.round(elapsed * speed));
     }
 
     private static final String[] PAUSED_ACCESSOR_NAMES = {"isPaused", "paused"};

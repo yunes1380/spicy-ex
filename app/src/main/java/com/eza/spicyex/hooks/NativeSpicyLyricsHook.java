@@ -67,16 +67,27 @@ public class NativeSpicyLyricsHook extends SpotifyHook implements LyricsHost {
         Diagnostics.event("bootstrap", "hook_start",
                 Diagnostics.context("process", Application.getProcessName()));
         dbg("hook", "native Spicy renderer hook enabled version=" + BuildStamp.FULL);
-        new NativeLyricsCaptureHook(
-                lpparm.classLoader(),
-                symbols,
-                lyricsFetchCoordinator.nativeLyricsSource(),
-                this::getCurrentTrackSafely,
-                applicationContext
-        ).hook();
-        playbackBridge.install(lpparm, symbols);
-        activityTakeoverHook.hook();
-        pipController.hook(lpparm.classLoader());
+        if (HostTarget.SAMSUNG) {
+            // Samsung Music retarget: the host is a different app entirely. Its own
+            // MediaSession already carries metadata + playback position, so the shared
+            // bridge captures it and a dedicated surface hook mounts the renderer
+            // over MusicMainActivity. The Spotify capture/PiP/auto stacks stay off;
+            // the session/fetch machinery below is host-agnostic.
+            playbackBridge.install(lpparm, symbols);
+            new SamsungLyricsSurfaceHook(this).hook();
+            XpLog.log(TAG + " Samsung Music playback bridge + surface hook installed");
+        } else {
+            new NativeLyricsCaptureHook(
+                    lpparm.classLoader(),
+                    symbols,
+                    lyricsFetchCoordinator.nativeLyricsSource(),
+                    this::getCurrentTrackSafely,
+                    applicationContext
+            ).hook();
+            playbackBridge.install(lpparm, symbols);
+            activityTakeoverHook.hook();
+            pipController.hook(lpparm.classLoader());
+        }
         String processName = Application.getProcessName();
         XpLog.log(TAG + " bridge init package=" + lpparm.packageName()
                 + " appProcess=" + processName);
@@ -95,7 +106,7 @@ public class NativeSpicyLyricsHook extends SpotifyHook implements LyricsHost {
             Diagnostics.event("bootstrap", "hook_ready",
                     Diagnostics.context("result", "main_process"));
         } else {
-            XpLog.log(TAG + " bridge skipped outside main Spotify process");
+            XpLog.log(TAG + " bridge skipped outside main host process");
             Diagnostics.event("bootstrap", "hook_ready",
                     Diagnostics.context("result", "secondary_process"));
         }

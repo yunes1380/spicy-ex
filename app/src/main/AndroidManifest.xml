@@ -6,7 +6,7 @@
     <uses-permission android:name="android.permission.INTERNET"/>
 
     <queries>
-        <package android:name="com.spotify.music"/>
+        <package android:name="com.sec.android.app.music"/>
         <package android:name="com.google.android.projection.gearhead"/>
     </queries>
 

@@ -1,5 +1,16 @@
+// The aliyun google-maven mirror is listed first: dl.google.com serves 404s in some
+// regions (the Samsung Music retarget is also built from Termux), while google() and
+// Maven Central remain as fallbacks for environments with unrestricted egress.
 pluginManagement {
     repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
         google {
             content {
                 includeGroupByRegex("com\\.android.*")
@@ -11,9 +22,21 @@ pluginManagement {
         gradlePluginPortal()
     }
 }
+
 dependencyResolutionManagement {
     repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
     repositories {
+        maven {
+            url 'https://maven.aliyun.com/repository/google'
+            content {
+                includeGroupByRegex("com\\.android.*")
+                includeGroupByRegex("com\\.google.*")
+                includeGroupByRegex("androidx.*")
+            }
+        }
+        // repo1.maven.org's TLS gets terminated on some networks; aliyun mirrors
+        // Maven Central, so keep the mirror in front and central as fallback.
+        maven { url 'https://maven.aliyun.com/repository/public' }
         google()
         mavenCentral()
         maven { url 'https://api.xposed.info/' }

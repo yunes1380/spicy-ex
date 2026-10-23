@@ -11,6 +11,7 @@ import androidx.annotation.NonNull;
 import com.eza.spicyex.Diagnostics;
 import com.eza.spicyex.References;
 import com.eza.spicyex.SpotifyPlusConfig;
+import com.eza.spicyex.hooks.HostTarget;
 import com.eza.spicyex.hooks.NativeSpicyLyricsHook;
 import com.eza.spicyex.lyrics.session.LyricsMemoryPressure;
 
@@ -24,13 +25,19 @@ import java.lang.ref.WeakReference;
 /**
  * API 102 module entry. One Java entry class only (hot-reload requirement).
  *
- * <p>Package work starts from {@code onPackageReady} for {@code com.spotify.music}.
+ * <p>Package work starts from {@code onPackageReady} for the target host.
  * Non-matching packages are ignored without {@code detach()}: detaching would also
- * drop a later Spotify package callback in the same process.
+ * drop a later package callback in the same process.
+ *
+ * <p>Samsung Music retarget (this fork): the host is {@code com.sec.android.app.music}.
+ * There is no Spotify PlayerState to reflect on there; PlaybackBridge's own
+ * MediaSession hooks feed {@code SamsungPlaybackStore}, and
+ * {@code SamsungLyricsSurfaceHook} mounts the renderer over MusicMainActivity.
+ * {@code HostTarget.SAMSUNG} gates everything Spotify-specific.
  */
 public final class SpicyEXModule extends XposedModule {
-    private static final String TARGET_PACKAGE = "com.spotify.music";
-    private static final String TAG = "[SpotifyPlus]";
+    private static final String TARGET_PACKAGE = "com.sec.android.app.music";
+    private static final String TAG = "[SpicyEX]";
 
     private static volatile boolean injectionToastShown = false;
     private volatile String processName = "";
@@ -54,6 +61,7 @@ public final class SpicyEXModule extends XposedModule {
     @Override
     public void onPackageReady(@NonNull PackageReadyParam param) {
         if ("com.google.android.projection.gearhead".equals(param.getPackageName())) {
+            if (HostTarget.SAMSUNG) return;
             ClassLoader loader = param.getClassLoader();
             XpHooks.findAfter(Application.class, "attach", "auto:Application#attach", p ->
                     com.eza.spicyex.auto.AndroidAutoPrototype.install((Context) p.args[0], loader), Context.class);
@@ -61,10 +69,12 @@ public final class SpicyEXModule extends XposedModule {
         }
         if (!TARGET_PACKAGE.equals(param.getPackageName())) return;
         Diagnostics.markHookRuntimeActive();
-        XpLog.log(TAG + " Loading SpotifyPlus");
+        XpLog.log(TAG + " Loading SpicyEX (Samsung Music retarget)");
 
         ClassLoader classLoader = param.getClassLoader();
         final XpPackage xpPackage = new XpPackage(param.getPackageName(), classLoader);
+        HostTarget.SAMSUNG = true;
+        XpLog.log(TAG + " host is Samsung Music; enabling Samsung adapter");
 
         XpHooks.findAfter(Activity.class, "onResume", "entry:Activity#onResume", p -> {
             Activity activity = (Activity) p.thisObject;
@@ -108,7 +118,9 @@ public final class SpicyEXModule extends XposedModule {
                 p -> {
                     Context context = (Context) p.args[0];
                     Diagnostics.initialize(context);
-                    com.eza.spicyex.hooks.SpicyOrgRetentionHook.install(context, classLoader);
+                    if (!HostTarget.SAMSUNG) {
+                        com.eza.spicyex.hooks.SpicyOrgRetentionHook.install(context, classLoader);
+                    }
                     LyricsMemoryPressure.install(context);
                     com.eza.spicyex.lyrics.language.SpicyJapaneseChineseProcessor.attachContext(context);
                     Diagnostics.event("bootstrap", "application_attach",

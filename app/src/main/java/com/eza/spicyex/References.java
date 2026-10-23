@@ -8,6 +8,8 @@ import android.graphics.Typeface;
 import android.os.Bundle;
 import android.util.Log;
 import android.util.Pair;
+import com.eza.spicyex.hooks.HostTarget;
+import com.eza.spicyex.hooks.SamsungPlaybackStore;
 import com.eza.spicyex.xposed.XpLog;
 import com.eza.spicyex.xposed.SpotifySymbolResolver;
 import com.eza.spicyex.xposed.XpReflect;
@@ -67,6 +69,13 @@ public class References {
     }
 
     public static SpotifyTrack getTrackTitle(ClassLoader classLoader, SpotifySymbolResolver symbols) {
+        // Samsung Music host: track identity/position come from the captured
+        // MediaSession (see SamsungPlaybackStore); no Spotify object exists.
+        if (HostTarget.SAMSUNG) {
+            SpotifyTrack samsungTrack = SamsungPlaybackStore.toTrack();
+            if (samsungTrack == null) XpLog.log("[SpicyEX] Samsung Music track not captured yet");
+            return samsungTrack;
+        }
         Object strongState = playerStateStrong;
         Object weakState = playerState == null ? null : playerState.get();
         if(strongState == null && weakState == null) {
