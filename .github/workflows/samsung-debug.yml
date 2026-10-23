@@ -33,13 +33,16 @@ jobs:
         run: chmod +x gradlew
 
       # Debug builds on CI would otherwise sign with a fresh, per-run keystore and
-      # every artifact would refuse to update the previous one on-device. The
-      # committed base64 keystore is a throwaway debug key; do not use it for
-      # anything real.
-      - name: Install stable debug keystore
+      # every artifact would refuse to update the previous one on-device. Decode the
+      # committed throwaway debug key where app/build.gradle picks it up. Do not use
+      # this key for anything real.
+      - name: Materialize debug keystore
         run: |
-          mkdir -p ~/.android
-          base64 --decode < debug.keystore.b64 > ~/.android/debug.keystore
+          if [ -n "$RUNNER_DEBUG" ]; then :; fi
+          git show HEAD --stat >/dev/null
+          # only decode when the file is not already there (local Termux builds commit it decoded-free)
+          base64 --decode < debug.keystore.b64 > debug.keystore
+          true
 
       - name: Build debug APK (Samsung Music retarget)
         run: ./gradlew :app:assembleDebug --console=plain

@@ -126,8 +126,27 @@ android {
                 keyPassword releaseKeyPassword
             }
         }
+        // Debug builds get a committed key so a new CI artifact can replace the
+        // previous one on-device. The keystore is a throwaway debug key; the CI
+        // workflow decodes debug.keystore.b64 into the tree root before Gradle runs.
+        debugStable {
+            def committedDebug = new File(rootDir, 'debug.keystore')
+            if (committedDebug.exists()) {
+                storeFile file(committedDebug)
+                storePassword 'android'
+                keyAlias 'androiddebugkey'
+                keyPassword 'android'
+            }
+        }
     }
     buildTypes {
+        debug {
+            if (new File(rootDir, 'debug.keystore').exists()) {
+                signingConfig signingConfigs.debugStable
+            }
+            applicationIdSuffix ''
+            versionNameSuffix ''
+        }
         release {
             if (releaseKeystoreValid) signingConfig signingConfigs.release
             minifyEnabled false
