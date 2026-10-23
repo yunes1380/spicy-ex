@@ -53,24 +53,24 @@ final class SamsungLyricsSurfaceHook {
                 "samsung:Activity#onWindowFocusChanged", p -> {
                     Activity activity = (Activity) p.thisObject;
                     if (p.args.length == 0 || !(Boolean) p.args[0]) return;
-                    Diagnostics.event(TAG, "samsung-lifecycle focus " + activity.getClass().getName()
+                    XpLog.log("[SpicyEX] " + "samsung-lifecycle focus " + activity.getClass().getName()
                             + (isMainWindow(activity) ? " main" : " other"));
                     if (!isMainWindow(activity)) return;
                     ensureChip(activity);
                     if (sessionActive) mount(activity);
                 }, boolean.class) != null) {
-            Diagnostics.event(TAG, "samsung-surface onWindowFocusChanged hook installed");
+            XpLog.log("[SpicyEX] " + "samsung-surface onWindowFocusChanged hook installed");
         } else {
-            Diagnostics.event(TAG, "samsung-surface onWindowFocusChanged hook NOT installed");
+            XpLog.log("[SpicyEX] " + "samsung-surface onWindowFocusChanged hook NOT installed");
         }
 
         if (XpHooks.findBefore(Activity.class, "onDestroy", "samsung:Activity#onDestroy", p -> {
             Activity activity = (Activity) p.thisObject;
             if (isMainWindow(activity)) detach(activity);
         }) != null) {
-            Diagnostics.event(TAG, "samsung-surface onDestroy hook installed");
+            XpLog.log("[SpicyEX] " + "samsung-surface onDestroy hook installed");
         } else {
-            Diagnostics.event(TAG, "samsung-surface onDestroy hook NOT installed");
+            XpLog.log("[SpicyEX] " + "samsung-surface onDestroy hook NOT installed");
         }
     }
 
@@ -101,7 +101,7 @@ final class SamsungLyricsSurfaceHook {
             background.setCornerRadius(dp(14));
             chip.setBackground(background);
             chip.setOnClickListener(v -> toggle(activity));
-            Diagnostics.event(TAG, "samsung-surface chip added on " + activity.getClass().getSimpleName());
+            XpLog.log("[SpicyEX] " + "samsung-surface chip added on " + activity.getClass().getSimpleName());
             FrameLayout.LayoutParams chipsParams = new FrameLayout.LayoutParams(
                     ViewGroup.LayoutParams.WRAP_CONTENT, dp(28));
             chipsParams.gravity = Gravity.BOTTOM | Gravity.END;
