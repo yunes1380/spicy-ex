@@ -32,6 +32,15 @@ jobs:
       - name: Make gradlew executable
         run: chmod +x gradlew
 
+      # Debug builds on CI would otherwise sign with a fresh, per-run keystore and
+      # every artifact would refuse to update the previous one on-device. The
+      # committed base64 keystore is a throwaway debug key; do not use it for
+      # anything real.
+      - name: Install stable debug keystore
+        run: |
+          mkdir -p ~/.android
+          base64 --decode < debug.keystore.b64 > ~/.android/debug.keystore
+
       - name: Build debug APK (Samsung Music retarget)
         run: ./gradlew :app:assembleDebug --console=plain
 
