@@ -49,19 +49,36 @@ final class SamsungLyricsSurfaceHook {
     }
 
     void hook() {
+        // MusicMainActivity overrides onWindowFocusChanged without calling super on some
+        // Samsung builds, so the parent-method hook never sees the app. onCreate is the one
+        // lifecycle method every Activity subclass must call through, so chip placement
+        // rides on it instead; the focus hook stays for the nothing-else-covers case.
+        if (XpHooks.findAfter(Activity.class, "onCreate",
+                "samsung:Activity#onCreate", p -> {
+                    Activity activity = (Activity) p.thisObject;
+                    if (!isMainWindow(activity)) return;
+                    XpLog.log(TAG + "samsung-lifecycle onCreate main activity");
+                    ensureChip(activity);
+                    if (sessionActive) mount(activity);
+                }, android.os.Bundle.class) != null) {
+            XpLog.log(TAG + "samsung-surface onCreate hook installed");
+        } else {
+            XpLog.log(TAG + "samsung-surface onCreate hook NOT installed");
+        }
+
         if (XpHooks.findAfter(Activity.class, "onWindowFocusChanged",
                 "samsung:Activity#onWindowFocusChanged", p -> {
                     Activity activity = (Activity) p.thisObject;
                     if (p.args.length == 0 || !(Boolean) p.args[0]) return;
-                    XpLog.log("[SpicyEX] " + "samsung-lifecycle focus " + activity.getClass().getName()
+                    XpLog.log(TAG + "samsung-lifecycle focus " + activity.getClass().getName()
                             + (isMainWindow(activity) ? " main" : " other"));
                     if (!isMainWindow(activity)) return;
                     ensureChip(activity);
                     if (sessionActive) mount(activity);
                 }, boolean.class) != null) {
-            XpLog.log("[SpicyEX] " + "samsung-surface onWindowFocusChanged hook installed");
+            XpLog.log(TAG + "samsung-surface onWindowFocusChanged hook installed");
         } else {
-            XpLog.log("[SpicyEX] " + "samsung-surface onWindowFocusChanged hook NOT installed");
+            XpLog.log(TAG + "samsung-surface onWindowFocusChanged hook NOT installed");
         }
 
         if (XpHooks.findBefore(Activity.class, "onDestroy", "samsung:Activity#onDestroy", p -> {
