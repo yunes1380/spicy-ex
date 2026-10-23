@@ -26,8 +26,8 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
-      - name: Set up Android SDK
-        uses: android-actions/setup-android@v3
+      # The ubuntu runner ships a preinstalled Android SDK (licenses accepted).
+      # Gradle/AGP fetches whatever platform/build-tools the build needs on top.
 
       - name: Make gradlew executable
         run: chmod +x gradlew
