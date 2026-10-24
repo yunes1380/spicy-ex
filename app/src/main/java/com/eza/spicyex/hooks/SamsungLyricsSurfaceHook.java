@@ -152,7 +152,8 @@ final class SamsungLyricsSurfaceHook {
             chip.setLayoutParams(chipsParams);
             content.addView(chip);
         } catch (Throwable t) {
-            XpLog.log(TAG + " chip install failed: " + t);
+            XpLog.log(TAG + " chip install failed: " + t + "\n"
+                    + android.util.Log.getStackTraceString(t));
         }
     }
 
