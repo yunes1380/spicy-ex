@@ -49,6 +49,23 @@ final class SamsungLyricsSurfaceHook {
     }
 
     void hook() {
+        // Samsung Music pulls its Compose surface in later than the first onCreate
+        // callback returns, and re-invokes Window#setContentView on navigation, which
+        // replaces the content root and wipes the chip along with it. Attach the chip
+        // AFTER every setContent call: the window's context is the hosting activity.
+        Runnable windowHookInstaller = () -> {
+            Class<?> windowClass = android.view.Window.class;
+            installContentHook(windowClass, "samsung:Window#setContentView.view",
+                    new Class<?>[]{android.view.View.class});
+            installContentHook(windowClass, "samsung:Window#setContentView.viewparams",
+                    new Class<?>[]{android.view.View.class, android.view.ViewGroup.LayoutParams.class});
+            installContentHook(windowClass, "samsung:Window#setContentView.res",
+                    new Class<?>[]{int.class});
+            installContentHook(windowClass, "samsung:Window#setContentView.resparams",
+                    new Class<?>[]{int.class, android.view.ViewGroup.LayoutParams.class});
+        };
+        windowHookInstaller.run();
+
         // MusicMainActivity overrides onWindowFocusChanged without calling super on some
         // Samsung builds, so the parent-method hook never sees the app. onCreate is the one
         // lifecycle method every Activity subclass must call through, so chip placement
@@ -128,6 +145,42 @@ final class SamsungLyricsSurfaceHook {
             content.addView(chip);
         } catch (Throwable t) {
             XpLog.log(TAG + " chip install failed: " + t);
+        }
+    }
+
+    private void installContentHook(Class<?> windowClass, String id, Class<?>[] paramTypes) {
+        try {
+            if (XpHooks.findAfter(windowClass, "setContentView", id, p -> {
+                try {
+                    android.view.Window window = (android.view.Window) p.thisObject;
+                    if (window == null) return;
+                    Activity activity = activityFromWindow(window);
+                    if (activity == null || !isMainWindow(activity)) return;
+                    ensureChip(activity);
+                    if (sessionActive) mount(activity);
+                } catch (Throwable t) {
+                    XpLog.log(TAG + " setContentView hook failed: " + t);
+                }
+            }, paramTypes) != null) {
+                XpLog.log(TAG + "samsung-surface " + id + " installed");
+            } else {
+                XpLog.log(TAG + "samsung-surface " + id + " NOT installed");
+            }
+        } catch (Throwable t) {
+            XpLog.log(TAG + "samsung-surface " + id + " install threw: " + t);
+        }
+    }
+
+    private static Activity activityFromWindow(android.view.Window window) {
+        try {
+            android.content.Context context = window.getContext();
+            while (context instanceof android.content.ContextWrapper) {
+                if (context instanceof Activity) return (Activity) context;
+                context = ((android.content.ContextWrapper) context).getBaseContext();
+            }
+            return context instanceof Activity ? (Activity) context : null;
+        } catch (Throwable ignored) {
+            return null;
         }
     }
 
