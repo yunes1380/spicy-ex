@@ -121,9 +121,19 @@ final class SamsungLyricsSurfaceHook {
         return MAIN_ACTIVITY.equals(activity.getClass().getName());
     }
 
+    /** Chip + shell mount on the DecorView root: every later setContentView() wipes
+     *  whatever hangs inside android.R.id.content, and the fullscreen player surface
+     *  covers it — the DecorView root stays above both. */
+    private static FrameLayout contentRoot(Activity activity) {
+        View decor = activity.getWindow() != null ? activity.getWindow().getDecorView() : null;
+        return decor instanceof FrameLayout
+                ? (FrameLayout) decor
+                : activity.findViewById(android.R.id.content);
+    }
+
     private void ensureChip(Activity activity) {
         try {
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             if (content == null) return;
             View existing = content.findViewWithTag(TAG_CHIP);
             if (existing instanceof TextView) {
@@ -215,7 +225,7 @@ final class SamsungLyricsSurfaceHook {
 
     private void toggle(Activity activity) {
         try {
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             boolean hasRoot = content != null
                     && content.findViewWithTag(TAG_ROOT) instanceof NativeSpicyShellView;
             if (hasRoot) {
@@ -234,7 +244,7 @@ final class SamsungLyricsSurfaceHook {
             if (activity.isFinishing()
                     || (Build.VERSION.SDK_INT >= 17 && activity.isDestroyed())) return;
             sessionActive = true;
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             if (content == null) {
                 XpLog.log(TAG + " Samsung content root missing");
                 return;
@@ -272,7 +282,7 @@ final class SamsungLyricsSurfaceHook {
 
     private void removeRoot(Activity activity) {
         try {
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             if (content == null) return;
             View existing = content.findViewWithTag(TAG_ROOT);
             if (existing instanceof NativeSpicyShellView) {
@@ -308,7 +318,7 @@ final class SamsungLyricsSurfaceHook {
     private void detach(Activity activity) {
         try {
             unregisterBack(activity);
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             if (content == null) return;
             View existing = content.findViewWithTag(TAG_ROOT);
             if (existing instanceof NativeSpicyShellView) {
@@ -398,7 +408,7 @@ final class SamsungLyricsSurfaceHook {
 
     private static boolean shellConsumesBack(Activity activity) {
         try {
-            FrameLayout content = activity.findViewById(android.R.id.content);
+            FrameLayout content = contentRoot(activity);
             View root = content == null ? null : content.findViewWithTag(TAG_ROOT);
             return root instanceof NativeSpicyShellView && ((NativeSpicyShellView) root).consumeBack();
         } catch (Throwable ignored) {
