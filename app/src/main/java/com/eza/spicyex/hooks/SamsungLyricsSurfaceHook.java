@@ -38,6 +38,7 @@ final class SamsungLyricsSurfaceHook {
     private static final int TAG_COVER = 0x53504C43; // SPLC - shared with the Spotify takeover
 
     private static volatile boolean sessionActive;
+    private static volatile boolean busy;
     private static final Object BACK_LOCK = new Object();
     private static final java.util.Map<Activity, OnBackInvokedCallback> BACK_CALLBACKS =
             Collections.synchronizedMap(new WeakHashMap<>());
@@ -161,13 +162,32 @@ final class SamsungLyricsSurfaceHook {
         try {
             if (XpHooks.findAfter(windowClass, "setContentView", id, p -> {
                 try {
-                    android.view.Window window = (android.view.Window) p.thisObject;
-                    if (window == null) return;
-                    Activity activity = activityFromWindow(window);
-                    if (activity == null || !isMainWindow(activity)) return;
-                    ensureChip(activity);
-                    if (sessionActive) mount(activity);
+                    // findViewById on a half-built window drags AppCompat sub-decor
+                    // inflation through Window#setContentView again; guard + defer.
+                    if (busy) return;
+                    busy = true;
+                    try {
+                        android.view.Window window = (android.view.Window) p.thisObject;
+                        if (window == null) return;
+                        Activity activity = activityFromWindow(window);
+                        if (activity == null || !isMainWindow(activity)) return;
+                        final Activity target = activity;
+                        final android.view.View decor = window.getDecorView();
+                        if (decor == null) return;
+                        decor.post(() -> {
+                            try {
+                                ensureChip(target);
+                                if (sessionActive) mount(target);
+                            } catch (Throwable t) {
+                                XpLog.log(TAG + " deferred chip failed: " + t + "\n"
+                                        + android.util.Log.getStackTraceString(t));
+                            }
+                        });
+                    } finally {
+                        busy = false;
+                    }
                 } catch (Throwable t) {
+                    busy = false;
                     XpLog.log(TAG + " setContentView hook failed: " + t);
                 }
             }, paramTypes) != null) {
