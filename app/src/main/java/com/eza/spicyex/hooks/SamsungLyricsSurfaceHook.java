@@ -159,9 +159,8 @@ final class SamsungLyricsSurfaceHook {
             XpLog.log("[SpicyEX] " + "samsung-surface chip added on " + activity.getClass().getSimpleName());
             FrameLayout.LayoutParams chipsParams = new FrameLayout.LayoutParams(
                     dp(60), dp(60));
-            chipsParams.gravity = Gravity.BOTTOM | Gravity.END;
-            chipsParams.rightMargin = dp(20);
-            chipsParams.bottomMargin = dp(128);
+            chipsParams.gravity = Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL;
+            chipsParams.bottomMargin = dp(232);
             chip.setLayoutParams(chipsParams);
             content.addView(chip);
         } catch (Throwable t) {
