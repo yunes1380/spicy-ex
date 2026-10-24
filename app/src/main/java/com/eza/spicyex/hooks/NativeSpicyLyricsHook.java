@@ -30,7 +30,7 @@ import com.eza.spicyex.xposed.XpReflect;
 public class NativeSpicyLyricsHook extends SpotifyHook implements LyricsHost {
     static final String TAG = "[SpotifyPlusSpicy]";
     private static final String BUILD_CLUE = BuildStamp.CLUE;
-    private static final boolean DEBUG_LOGGING = false;
+    private static final boolean DEBUG_LOGGING = HostTarget.SAMSUNG;
     static volatile int fetchGeneration;
     private final Context applicationContext;
     private final NowPlayingInjector nowPlayingInjector = new NowPlayingInjector(this);
