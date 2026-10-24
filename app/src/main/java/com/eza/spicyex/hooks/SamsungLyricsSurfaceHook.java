@@ -54,15 +54,13 @@ final class SamsungLyricsSurfaceHook {
         // replaces the content root and wipes the chip along with it. Attach the chip
         // AFTER every setContent call: the window's context is the hosting activity.
         Runnable windowHookInstaller = () -> {
-            Class<?> windowClass = android.view.Window.class;
+            Class<?> windowClass = com.android.internal.policy.PhoneWindow.class;
             installContentHook(windowClass, "samsung:Window#setContentView.view",
                     new Class<?>[]{android.view.View.class});
             installContentHook(windowClass, "samsung:Window#setContentView.viewparams",
                     new Class<?>[]{android.view.View.class, android.view.ViewGroup.LayoutParams.class});
             installContentHook(windowClass, "samsung:Window#setContentView.res",
                     new Class<?>[]{int.class});
-            installContentHook(windowClass, "samsung:Window#setContentView.resparams",
-                    new Class<?>[]{int.class, android.view.ViewGroup.LayoutParams.class});
         };
         windowHookInstaller.run();
 
