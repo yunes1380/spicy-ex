@@ -143,23 +143,25 @@ final class SamsungLyricsSurfaceHook {
             TextView chip = new TextView(activity);
             chip.setTag(TAG_CHIP);
             chip.setText("♪");
-            chip.setTextSize(18);
+            chip.setTextSize(26);
             chip.setTypeface(Typeface.DEFAULT_BOLD);
             chip.setTextColor(Color.WHITE);
-            chip.setPadding(dp(10), 0, dp(10), 0);
             chip.setGravity(Gravity.CENTER);
             chip.setContentDescription("Spicy lyrics");
             GradientDrawable background = new GradientDrawable();
-            background.setColor(0xCCE52E66);
-            background.setCornerRadius(dp(14));
+            background.setColor(0xE0E52E66);
+            background.setCornerRadius(dp(30));
             chip.setBackground(background);
-            chip.setOnClickListener(v -> toggle(activity));
+            chip.setOnClickListener(v -> {
+                XpLog.log(TAG + " chip tapped");
+                toggle(activity);
+            });
             XpLog.log("[SpicyEX] " + "samsung-surface chip added on " + activity.getClass().getSimpleName());
             FrameLayout.LayoutParams chipsParams = new FrameLayout.LayoutParams(
-                    ViewGroup.LayoutParams.WRAP_CONTENT, dp(28));
+                    dp(60), dp(60));
             chipsParams.gravity = Gravity.BOTTOM | Gravity.END;
-            chipsParams.rightMargin = dp(16);
-            chipsParams.bottomMargin = dp(88);
+            chipsParams.rightMargin = dp(20);
+            chipsParams.bottomMargin = dp(128);
             chip.setLayoutParams(chipsParams);
             content.addView(chip);
         } catch (Throwable t) {
