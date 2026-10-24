@@ -54,7 +54,17 @@ final class SamsungLyricsSurfaceHook {
         // replaces the content root and wipes the chip along with it. Attach the chip
         // AFTER every setContent call: the window's context is the hosting activity.
         Runnable windowHookInstaller = () -> {
-            Class<?> windowClass = com.android.internal.policy.PhoneWindow.class;
+            // PhoneWindow is a hidden internal type, so it is not in the compile SDK;
+            // resolve it reflectively (the app loader's parent chain includes the boot
+            // classpath where the framework internals live).
+            Class<?> windowClass = null;
+            try {
+                windowClass = Class.forName(
+                        "com.android.internal.policy.PhoneWindow", false, getClass().getClassLoader());
+            } catch (Throwable t) {
+                XpLog.log(TAG + "samsung-surface PhoneWindow lookup failed: " + t);
+            }
+            if (windowClass == null) return;
             installContentHook(windowClass, "samsung:Window#setContentView.view",
                     new Class<?>[]{android.view.View.class});
             installContentHook(windowClass, "samsung:Window#setContentView.viewparams",
